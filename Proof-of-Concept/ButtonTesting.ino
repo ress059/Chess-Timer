@@ -26,7 +26,6 @@ buttontracker led;
 void test(buttontracker a);
 
 void setup() {
-  //Serial.begin(9600);
   pinMode(greenbuttonpin, INPUT);
   pinMode(greenledpin, OUTPUT);
   pinMode(bluebuttonpin, INPUT);
