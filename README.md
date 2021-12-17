@@ -1,8 +1,16 @@
 # Chess-Timer
 
 ## Proof of Concept
-Code to interface [these buttons](https://www.adafruit.com/product/3433) with an Arduino Uno.
+Video and code to interface [these buttons](https://www.adafruit.com/product/3433) with an Arduino Uno.
 
-## Prototype 1
+## Schematic
+PDF of the full schematic.
 
-## Prototype 2
+## PCB
+Gerber files for manufacturing and PDFs of the board layout.
+
+## Firmware
+In progress. Currently prototyping UI using Windows Simulator with LVGL library.
+
+## Documentation
+Bill of Materials, List of Requirements, and Behavioral Test Plans for quality testing.
