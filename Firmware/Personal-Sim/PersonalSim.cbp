@@ -45,6 +45,10 @@
 			<Option compilerVar="CC" />
 		</Unit>
 		<Unit filename="chess_timer_ui/chess_timer_ui.h" />
+		<Unit filename="chess_timer_ui/lv_ex_conf_template.h" />
+		<Unit filename="chess_timer_ui/lv_examples.h" />
+		<Unit filename="chess_timer_ui/src/lv_ex_get_started/lv_ex_get_started.h" />
+		<Unit filename="chess_timer_ui/src/lv_examples.h" />
 		<Unit filename="lv_conf.h" />
 		<Unit filename="lv_drivers/display/ILI9341.c">
 			<Option compilerVar="CC" />
