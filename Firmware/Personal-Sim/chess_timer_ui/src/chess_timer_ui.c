@@ -19,44 +19,53 @@
 /**********************
  *  STATIC PROTOTYPES
  **********************/
+//create functions
 static lv_obj_t * create_btn(lv_obj_t * parent, char * label, bool red_label, lv_event_cb_t event_cb);
-static void timer_btn_pressed_cb(lv_obj_t *obj, lv_event_t event);
-static void anim_bg_top(uint32_t time);
 static void create_slider_scr();
+static void create_timer_scr();
 
+//event callbacks
 static void slider_event_cb(lv_obj_t * sliderobj, lv_event_t event);
 static void apply_btn_cb(lv_obj_t *obj, lv_event_t event);
 static void back_btn_cb(lv_obj_t *obj, lv_event_t event);
+static void timer_btn_pressed_cb(lv_obj_t *obj, lv_event_t event);
+
+//animations & animation callbacks
+static void anim_bg_top(uint32_t time);
+static void fade_out(lv_obj_t * par, uint32_t time, uint32_t delay, bool del);
+static void fade_in(lv_obj_t * par, uint32_t time, uint32_t delay, bool clickable);
+static void opa_scale_anim(lv_obj_t * obj, lv_anim_value_t v);
+static void delete_obj(lv_anim_t * anim);
+static void btn_check(lv_anim_t * anim);
+static void set_clickable(void* btn);
 
 /**********************
  *  STATIC VARIABLES
  **********************/
+//home screen objects
 static uint8_t bat_remaining = 100; //TODO
-static uint16_t slider_minutes = 15;
-
 static lv_obj_t * homeimg;
 static lv_obj_t * bg_top;
 static lv_obj_t * time_btn;
+
+//slider screen objects
+static uint16_t slider_minutes = 15;
+static lv_obj_t * slider_scr_cont;
 static lv_obj_t * apply_btn;
 static lv_obj_t * back_btn;
-static lv_obj_t * slider_scr_cont;
-
-static lv_style_t default_btn_style;
-static lv_style_t red_btn_style;
-
-
-
-static lv_obj_t * batcontainer;
 static lv_obj_t * slider_label;
 
+//timer screen objects
+static lv_obj_t * timer_scr_cont;
 
-
-/**********************
- *  STYLES
- **********************/
-static lv_style_t slider_cont_style;
+//styles
+static lv_style_t default_btn_style;
+static lv_style_t red_btn_style;
 static lv_style_t slider_style;
+static lv_style_t slider_cont_style;
 
+//debugging
+static lv_obj_t * debugbtn;
 
 void chess_timer_ui(void){
     //initialize styles
@@ -93,10 +102,6 @@ void chess_timer_ui(void){
     lv_obj_clean_style_list(bg_top, LV_OBJ_PART_MAIN);
     lv_obj_set_size(bg_top, LV_HOR_RES_MAX, 57);
     lv_obj_align(bg_top, NULL, LV_ALIGN_IN_TOP_MID, 0, 0);
-    slider_scr_cont = lv_obj_create(homescr, NULL);
-    lv_obj_clean_style_list(slider_scr_cont, LV_OBJ_PART_MAIN);
-    lv_obj_set_size(slider_scr_cont, LV_HOR_RES_MAX, LV_VER_RES_MAX);
-    lv_obj_align(slider_scr_cont, NULL, LV_ALIGN_CENTER, 0, 0);
 
     //main title, battery
     lv_obj_t * bg_top_my_name = lv_label_create(bg_top, NULL);
@@ -133,7 +138,7 @@ void chess_timer_ui(void){
     //animations
     anim_bg_top(200);
 
-    //debugging
+    //debugging - TODO
 
     /* animate homescreen if it's first turned on
     static bool firstrun = true;
@@ -143,9 +148,12 @@ void chess_timer_ui(void){
     }*/
 }
 
+//creates button but makes it not clickable. animation callbacks control this behavior to ensure buttons
+//cannot be clicked/register events until their animations are fully complete
 static lv_obj_t * create_btn(lv_obj_t * parent, char * label, bool red_label, lv_event_cb_t event_cb)
 {
     lv_obj_t * btn = lv_btn_create(parent, NULL);
+    lv_obj_set_click(btn, false);
     lv_obj_clean_style_list(btn, LV_BTN_PART_MAIN);
     lv_obj_set_size(btn, 160, 45);
     lv_obj_add_style(btn, LV_BTN_PART_MAIN, &default_btn_style);
@@ -165,6 +173,7 @@ static lv_obj_t * create_btn(lv_obj_t * parent, char * label, bool red_label, lv
 static void timer_btn_pressed_cb(lv_obj_t *obj, lv_event_t event)
 {
     if (event == LV_EVENT_PRESSED) {
+        lv_obj_set_click(time_btn, false);
         anim_bg_top(200);
         create_slider_scr();
     }
@@ -191,7 +200,7 @@ static void anim_bg_top(uint32_t time)
     lv_anim_set_exec_cb(&bg_anim, (lv_anim_exec_xcb_t) lv_obj_set_y);
     lv_anim_set_exec_cb(&btn_anim, (lv_anim_exec_xcb_t) lv_obj_set_y);
 
-    if (firstpass == true) {
+    if (firstpass == true) { //time_btn not clickable
         lv_anim_path_set_cb(&bg_path, lv_anim_path_ease_in);
         lv_anim_set_values(&bg_anim, -lv_obj_get_height(bg_top), 0);
         lv_anim_set_values(&btn_anim, LV_VER_RES_MAX, 265);
@@ -200,8 +209,8 @@ static void anim_bg_top(uint32_t time)
         lv_anim_start(&bg_anim);
         lv_anim_start(&btn_anim);
 
-        lv_obj_fade_in(bg_top, time+50, 0);
-        lv_obj_fade_in(time_btn, time+50, 0);
+        fade_in(bg_top, time+50, 0, false);
+        fade_in(time_btn, time+50, 0, true);
         firstpass = false;
         return;
     }
@@ -218,9 +227,9 @@ static void anim_bg_top(uint32_t time)
         lv_anim_start(&bg_anim);
         lv_anim_start(&btn_anim);
 
-        lv_obj_fade_out(bg_top, time+50, 0);
-        lv_obj_fade_out(time_btn, time+50, 0);
-        lv_obj_fade_in(bg_top, time+50, time);
+        //fade_out(bg_top, time+50, 0, false);
+        //fade_out(time_btn, time+50, 0, false);
+        fade_in(bg_top, time+50, time, false);
     }
 
     else if (y_act == LV_VER_RES_MAX){
@@ -236,14 +245,20 @@ static void anim_bg_top(uint32_t time)
         lv_anim_start(&bg_anim);
         lv_anim_start(&btn_anim);
 
-        lv_obj_fade_out(bg_top, time+50, 0);
-        lv_obj_fade_in(time_btn, time+50, time);
-        lv_obj_fade_in(bg_top, time+50, time);
+        //fade_out(bg_top, time+50, 0, false);
+        fade_in(time_btn, time+50, time, true);
+        fade_in(bg_top, time+50, time, false);
     }
 }
 
 static void create_slider_scr()
 {
+    //slider screen container
+    slider_scr_cont = lv_obj_create(lv_scr_act(), NULL);
+    lv_obj_clean_style_list(slider_scr_cont, LV_OBJ_PART_MAIN);
+    lv_obj_set_size(slider_scr_cont, LV_HOR_RES_MAX, LV_VER_RES_MAX);
+    lv_obj_align(slider_scr_cont, NULL, LV_ALIGN_CENTER, 0, 0);
+
     //slider container
     lv_obj_t * slider_cont = lv_obj_create(slider_scr_cont, NULL);
     lv_obj_clean_style_list(slider_scr_cont, LV_OBJ_PART_MAIN);
@@ -281,12 +296,12 @@ static void create_slider_scr()
     lv_obj_align_mid_x(apply_btn, slider_scr_cont, LV_ALIGN_CENTER, 0);
     lv_obj_set_y(apply_btn, 207);
 
-    //quit button
+    //back button
     back_btn = create_btn(slider_scr_cont, "Back", true, back_btn_cb);
     lv_obj_align_mid_x(back_btn, slider_scr_cont, LV_ALIGN_CENTER, 0);
     lv_obj_set_y(back_btn, 265);
 
-    lv_obj_fade_in(slider_scr_cont, 200, 200);
+    fade_in(slider_scr_cont, 200, 200, true);
 }
 
 static void slider_event_cb(lv_obj_t * sliderobj, lv_event_t event)
@@ -299,159 +314,131 @@ static void slider_event_cb(lv_obj_t * sliderobj, lv_event_t event)
 
 static void apply_btn_cb(lv_obj_t *obj, lv_event_t event)
 {
-
+    if (event == LV_EVENT_PRESSED) {
+        lv_obj_set_click(apply_btn, false);
+        fade_out(slider_scr_cont, 200, 0, true);
+        fade_out(homeimg, 200, 0, false);
+        fade_out(bg_top, 200, 0, false);
+        create_timer_scr();
+    }
 }
 
 static void back_btn_cb(lv_obj_t *obj, lv_event_t event)
 {
     if (event == LV_EVENT_PRESSED) {
+        lv_obj_set_click(back_btn, false);
+        fade_out(slider_scr_cont, 200, 0, true);
         anim_bg_top(200);
-        lv_obj_fade_out(slider_scr_cont, 200, 0);
-        //lv_obj_clean(slider_scr_cont);
     }
-
 }
 
-
-
-
-
-
-
-
-
-
-static void set_time_pressed_cb(lv_obj_t * obj, lv_event_t e)
+//fades out the parent object and all its children. Deletes all objects from RAM through callback if del = true
+static void fade_out(lv_obj_t * par, uint32_t time, uint32_t delay, bool del)
 {
-    if (e == LV_EVENT_PRESSED){
-        /**make the slider screen on bgtop**/
-        // bat container
-        batcontainer = lv_cont_create(bg_top, NULL);
-        lv_obj_clean_style_list(batcontainer, LV_CONT_PART_MAIN);
-        lv_cont_set_fit(batcontainer, LV_FIT_TIGHT);
-        lv_cont_set_layout(batcontainer, LV_LAYOUT_COLUMN_MID);
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, par);
+    lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_TRANSP);
+    lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)opa_scale_anim);
 
-        //bat symbol
-        lv_obj_t * batsymbol = lv_label_create(batcontainer, NULL);
-        lv_obj_set_style_local_text_font(batsymbol, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_24);
-        lv_obj_set_style_local_text_color(batsymbol, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_GREEN);
-        lv_label_set_text(batsymbol, LV_SYMBOL_BATTERY_FULL);
+    if (del == true) {
+        lv_anim_set_ready_cb(&a, delete_obj);
+    }
 
-        //bat label
-        lv_obj_t * bat_label = lv_label_create(batcontainer, NULL);
-        lv_obj_set_style_local_text_color(bat_label, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
-        lv_label_set_text_fmt(bat_label, "%d%%", bat_remaining);
-        lv_obj_align(batcontainer, bg_top, LV_ALIGN_IN_TOP_RIGHT, -5, 5);
+    lv_anim_set_time(&a, time);
+    lv_anim_set_delay(&a, delay);
+    lv_anim_start(&a);
+}
 
-        //back button
-        lv_obj_t * backbtn = lv_btn_create(bg_top, NULL);
-        lv_obj_clean_style_list(backbtn, LV_BTN_PART_MAIN);
-        lv_obj_set_size(backbtn, 50, 50);
-        lv_obj_align(backbtn, bg_top, LV_ALIGN_IN_TOP_LEFT, 0, 0);
-        //lv_obj_set_event_cb(backbtn, backbtn_pressed_cb);
+//fades in the parent object and all its children. Makes child buttons clickable at end of animation if set to true
+static void fade_in(lv_obj_t * par, uint32_t time, uint32_t delay, bool clickable)
+{
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, par);
+    lv_anim_set_values(&a, LV_OPA_TRANSP, LV_OPA_COVER);
+    lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t)opa_scale_anim);
 
-        //back button label
-        lv_obj_t * backbtnlabel = lv_label_create(backbtn, NULL);
-        lv_obj_set_style_local_text_color(backbtnlabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
-        lv_obj_set_style_local_text_font(backbtnlabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_24);
-        lv_label_set_text(backbtnlabel, LV_SYMBOL_LEFT);
+    if (clickable == true) {
+        lv_anim_set_start_cb(&a, btn_check);
+    }
 
-        //slider
-        lv_obj_t * slider = lv_slider_create(bg_top, NULL);
-        lv_obj_set_adv_hittest(slider, true); //knob only mode
-        lv_slider_set_range(slider, 0, 30);
-        lv_slider_set_anim_time(slider, 50);
-        lv_obj_set_width(slider, 3*LV_HOR_RES_MAX/4);
-        //lv_obj_set_height(slider, 50);
+    lv_anim_set_time(&a, time);
+    lv_anim_set_delay(&a, delay);
+    lv_anim_start(&a);
+}
 
-        //in first pass set slider at midpoint
-        //once value changes, set to whatever slide_minutes is
-        static bool first_pass = true;
-        if (first_pass == true){
-            slider_minutes = lv_slider_get_max_value(slider)/2;
-            first_pass = false;
+static void opa_scale_anim(lv_obj_t * obj, lv_anim_value_t v)
+{
+    lv_obj_set_style_local_opa_scale(obj, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, v);
+}
+
+//fade_out callback
+static void delete_obj(lv_anim_t * anim)
+{
+    lv_obj_t * par = (lv_obj_t*)anim->var;
+    lv_obj_del_async(par);
+}
+
+//fade_in callback. if parent object is a button, make it clickable and stop execution of rest of callback.
+//otherwise make all child buttons clickable
+static void btn_check(lv_anim_t * anim)
+{
+    lv_obj_t * par = (lv_obj_t*)anim->var;
+    lv_obj_type_t typebuf;
+    lv_obj_get_type(par, &typebuf);
+
+    if (strcmp("lv_btn", typebuf.type[0]) == 0) {
+        lv_async_call(set_clickable, par);
+        return;
+    }
+
+    lv_obj_t * child = lv_obj_get_child(par, NULL);
+    lv_obj_get_type(child, &typebuf);
+
+    for (uint16_t i = 0; i < lv_obj_count_children(par); i++) {
+        if (strcmp("lv_btn", typebuf.type[0]) == 0) {
+            lv_async_call(set_clickable, child);
         }
-
-        lv_slider_set_value(slider, slider_minutes, LV_ANIM_OFF);
-        lv_obj_align(slider, bg_top, LV_ALIGN_CENTER, 0, 0);
-
-        lv_obj_set_event_cb(slider, slider_event_cb);
-
-        //slider label
-        //sliderlabel = lv_label_create(bg_top, NULL);
-        //lv_obj_set_style_local_text_color(sliderlabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_WHITE);
-        //lv_obj_set_style_local_text_font(sliderlabel, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT,
-                                       //&lv_font_montserrat_18);
-        //lv_label_set_text_fmt(sliderlabel, "Minutes per Side: %d", slider_minutes);
-        //lv_obj_align(sliderlabel, slider, LV_ALIGN_OUT_BOTTOM_MID, 0, 10);
-
-        //apply button
-        lv_obj_t * applybtn = lv_btn_create(bg_top, NULL);
-        lv_obj_clean_style_list(applybtn, LV_BTN_PART_MAIN);
-        //lv_obj_add_style(applybtn, LV_OBJ_PART_MAIN, &homebtnstyle);
-        lv_obj_set_size(applybtn, 125, 50);
-        lv_obj_align(applybtn, bg_top, LV_ALIGN_IN_BOTTOM_MID, 0, -15);
-        lv_obj_t * applybtnlabel = lv_label_create(applybtn, NULL);
-        lv_label_set_text(applybtnlabel, "Apply");
-
-
-        /**animate everything**/
-        uint16_t delay =50;
-
-        //place bgtop near bottom
-        lv_obj_set_y(bg_top, (4*LV_VER_RES_MAX)/5);
-
-        //move bgtop to top of screen while fading in
-        lv_anim_t a;
-        lv_anim_init(&a);
-        lv_anim_set_var(&a, bg_top);
-        lv_anim_set_time(&a, SLIDER_SCREEN_TIME);
-        lv_anim_set_delay(&a, delay);
-        lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t) lv_obj_set_y);
-        lv_anim_set_values(&a, lv_obj_get_y(bg_top), 0);
-        lv_anim_start(&a);
-        lv_obj_fade_in(bg_top, SLIDER_SCREEN_TIME+50, delay);
-
-        //fade in slider move down.
-        delay+=SLIDER_SCREEN_TIME;
-
-        lv_anim_init(&a);
-        lv_anim_set_var(&a, slider);
-        lv_anim_set_time(&a, SLIDER_SCREEN_TIME/3);
-        lv_anim_set_delay(&a, delay);
-        lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t) lv_obj_set_y);
-        lv_anim_set_values(&a, lv_obj_get_y(slider)-20, lv_obj_get_y(slider));
-        lv_anim_start(&a);
-        lv_obj_fade_in(slider, (SLIDER_SCREEN_TIME/3)+50, delay);
-
-        delay+=100;
-        lv_anim_init(&a);
-        //lv_anim_set_var(&a, sliderlabel);
-        lv_anim_set_time(&a, SLIDER_SCREEN_TIME/3);
-        lv_anim_set_delay(&a, delay);
-        lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t) lv_obj_set_y);
-        //lv_anim_set_values(&a, lv_obj_get_y(sliderlabel)-20, lv_obj_get_y(sliderlabel));
-        lv_anim_start(&a);
-        //lv_obj_fade_in(sliderlabel, (SLIDER_SCREEN_TIME/3)+50, delay);
-
-        //fade in apply btn move down.
-        delay+=100;
-
-        lv_anim_init(&a);
-        lv_anim_set_var(&a, applybtn);
-        lv_anim_set_time(&a, (SLIDER_SCREEN_TIME/3));
-        lv_anim_set_delay(&a, delay);
-        lv_anim_set_exec_cb(&a, (lv_anim_exec_xcb_t) lv_obj_set_y);
-        lv_anim_set_values(&a, lv_obj_get_y(applybtn)-100, lv_obj_get_y(applybtn));
-        lv_anim_start(&a);
-        lv_obj_fade_in(applybtn, (SLIDER_SCREEN_TIME/3)+50, delay);
-
-
-        //fade in batcontainer, back btn. no move.
-        delay+=100;
-        lv_obj_fade_in(batcontainer, SLIDER_SCREEN_TIME/3, delay);
-        lv_obj_fade_in(backbtn, SLIDER_SCREEN_TIME/3, delay);
+        child = lv_obj_get_child(par, child);
+        if (child) {
+            lv_obj_get_type(child, &typebuf);
+        }
     }
 }
 
+static void set_clickable(void * btn)
+{
+    lv_obj_set_click(btn, true);
+}
 
+static void create_timer_scr()
+{
+    //timer screen container
+    timer_scr_cont = lv_obj_create(lv_scr_act(), NULL);
+    lv_obj_clean_style_list(timer_scr_cont, LV_OBJ_PART_MAIN);
+    lv_obj_set_size(timer_scr_cont, LV_HOR_RES_MAX, LV_VER_RES_MAX);
+    lv_obj_align(timer_scr_cont, NULL, LV_ALIGN_CENTER, 0, 0);
+
+    //player1 container
+    lv_obj_t * p1_cont = lv_obj_create(timer_scr_cont, NULL);
+    lv_obj_clean_style_list(p1_cont, LV_OBJ_PART_MAIN);
+    lv_obj_set_size(p1_cont, LV_HOR_RES_MAX, LV_VER_RES_MAX/2);
+    lv_obj_align(p1_cont, timer_scr_cont, LV_ALIGN_IN_TOP_MID, 0, 0);
+    lv_obj_set_style_local_bg_color(p1_cont, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, lv_color_hex(0xB9B9B9));
+
+    //player2 container
+    lv_obj_t * p2_cont = lv_obj_create(timer_scr_cont, NULL);
+    lv_obj_clean_style_list(p2_cont, LV_OBJ_PART_MAIN);
+    lv_obj_set_size(p2_cont, LV_HOR_RES_MAX, LV_VER_RES_MAX/2);
+    lv_obj_align(p2_cont, timer_scr_cont, LV_ALIGN_IN_BOTTOM_MID, 0, 0);
+    lv_obj_set_style_local_bg_color(p2_cont, LV_OBJ_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_BLACK);
+
+
+    //p1 time label
+    lv_obj_t * p1_time = lv_label_create(p1_cont, NULL);
+    lv_obj_set_style_local_text_font(p1_time, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, &lv_font_montserrat_48);
+    lv_obj_set_style_local_text_color(p1_time, LV_LABEL_PART_MAIN, LV_STATE_DEFAULT, LV_COLOR_BLACK);
+    lv_label_set_text(bg_top_my_name, "15:00"); //TODO
+    lv_obj_set_pos(bg_top_my_name, 5, 0);
+}

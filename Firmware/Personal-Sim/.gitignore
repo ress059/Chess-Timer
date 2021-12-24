@@ -50,3 +50,12 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+# Other
+*.depend
+*.layout
+*.cbp
+/lvgl/*
+/lv_drivers/*
+/bin/*
+/.github/*
